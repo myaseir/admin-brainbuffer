@@ -1,3 +1,4 @@
+"use client";
 import { DollarSign, Users, ArrowUpRight, ArrowDownRight, Wallet, Activity, Gamepad2 } from 'lucide-react';
 
 export default function MetricGrid({ stats, health }: { stats: any, health: any }) {
@@ -44,7 +45,8 @@ export default function MetricGrid({ stats, health }: { stats: any, health: any 
         </div>
         <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Registered</p>
         <h3 className="text-2xl font-black text-slate-900 mt-1">
-          {health.database?.total_registered_users || 0} Users
+          {/* 🛑 FIXED: Matches backend key 'total_registered' */}
+          {health.database?.total_registered || 0} Users
         </h3>
       </div>
 
@@ -89,7 +91,8 @@ export default function MetricGrid({ stats, health }: { stats: any, health: any 
         </div>
         <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Live Matchmaking</p>
         <h3 className="text-2xl font-black text-slate-900 mt-1">
-          {health.real_time_metrics?.total_players_online || 0} Online
+          {/* 🛑 FIXED: Matches backend key 'real_time' */}
+          {health.real_time?.total_players_online || 0} Online
         </h3>
       </div>
       

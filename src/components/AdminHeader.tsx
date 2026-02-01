@@ -15,7 +15,7 @@ export default function AdminHeader({ loading, onRefresh }: AdminHeaderProps) {
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Live Command Center</span>
         </div>
         <h1 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">
-          Glacia<span className="text-emerald-500">Admin</span>
+          BrainBuffer<span className="text-emerald-500">Admin</span>
         </h1>
       </div>
       

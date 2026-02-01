@@ -75,17 +75,18 @@ export default function AdminLeaderboard({ data }: { data: LeaderboardData | nul
                 </td>
                 <td className="py-4">
                     <span className="group-hover:text-emerald-600 transition-colors">
-                        {player.username}
+                        {player.username || 'Unknown'}
                     </span>
                 </td>
                 <td className="py-4">
                     <div className="flex items-center gap-2">
                         <TrendingUp size={14} className="text-slate-300" />
-                        {player.total_wins}
+                        {player.total_wins || 0}
                     </div>
                 </td>
                 <td className="py-4 text-right pr-4 font-black text-slate-900">
-                  {data.global_stats.currency} {player.wallet_balance.toLocaleString()}
+                  {/* 🛑 FIXED: Added safety check (|| 0) to prevent crash on undefined balance */}
+                  {data.global_stats.currency} {(player.wallet_balance || 0).toLocaleString()}
                 </td>
               </tr>
             ))}
