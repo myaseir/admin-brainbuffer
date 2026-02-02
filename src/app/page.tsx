@@ -9,8 +9,10 @@ import WithdrawalTable from '@/src/components/WithdrawalTable';
 import DepositTable from '@/src/components/DepositTable';
 import SystemHealth from '@/src/components/SystemHealth';
 import AdminLeaderboard from '@/src/components/AdminLeaderboard';
-// 👇 1. Uncomment the import
 import ActivityChart from '@/src/components/ActivityChart';
+
+// 👇 1. IMPORT THE NEW COMPONENT
+import AdminRequests from '@/src/components/AdminRequests';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
@@ -24,7 +26,6 @@ export default function AdminDashboardPage() {
   const [pendingDeposits, setPendingDeposits] = useState([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState([]);
   const [leaderboardData, setLeaderboardData] = useState(null);
-  // 👇 2. Add state for Peak Data
   const [peakData, setPeakData] = useState([]); 
   
   const [loading, setLoading] = useState(true);
@@ -52,7 +53,6 @@ export default function AdminDashboardPage() {
     try {
       const headers = getAuthHeaders();
       
-      // 👇 3. Include the peak-times endpoint in the fetch
       const [revRes, healthRes, depRes, withRes, leadRes, peakRes] = await Promise.all([
         fetch(`${API_BASE}/api/admin/revenue/today`, { headers }),
         fetch(`${API_BASE}/api/admin/health`, { headers }),
@@ -80,7 +80,6 @@ export default function AdminDashboardPage() {
       setPendingWithdrawals(withData.pending_withdrawals || []);
       
       setLeaderboardData(await leadRes.json());
-      // 👇 4. Set the peak data
       setPeakData(await peakRes.json() || []);
       
     } catch (err: any) {
@@ -133,22 +132,31 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 font-sans text-slate-900">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto space-y-8">
         <AdminHeader loading={loading} onRefresh={fetchData} />
         
-        <WithdrawalTable 
-          data={pendingWithdrawals} 
-          onAction={(id: string, action: 'approve' | 'reject') => handleAction('withdrawal', id, action)} 
-        />
-        
-        <DepositTable 
-          data={pendingDeposits} 
-          onAction={(id: string, action: 'approve' | 'reject') => handleAction('deposit', id, action)} 
-        />
+        {/* --- PRIORITY 1: FINANCIAL REQUESTS --- */}
+        <div className="space-y-8">
+            <WithdrawalTable 
+            data={pendingWithdrawals} 
+            onAction={(id: string, action: 'approve' | 'reject') => handleAction('withdrawal', id, action)} 
+            />
+            
+            <DepositTable 
+            data={pendingDeposits} 
+            onAction={(id: string, action: 'approve' | 'reject') => handleAction('deposit', id, action)} 
+            />
+        </div>
 
+        {/* --- PRIORITY 2: USER REQUESTS (SUPPORT) --- */}
+        {/* 👇 ADDED HERE: Shows user reports immediately after money tables */}
+        <div className="my-8">
+            <AdminRequests />
+        </div>
+
+        {/* --- PRIORITY 3: METRICS & HEALTH --- */}
         <MetricGrid stats={stats} health={health} />
         
-        {/* 👇 5. Render the Activity Chart */}
         <ActivityChart data={peakData} />
         
         <SystemHealth health={health} stats={stats} />
