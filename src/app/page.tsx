@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 
+// Core Components
 import AdminHeader from '@/src/components/AdminHeader';
 import MetricGrid from '@/src/components/MetricGrid';
 import WithdrawalTable from '@/src/components/WithdrawalTable';
@@ -11,8 +12,11 @@ import SystemHealth from '@/src/components/SystemHealth';
 import AdminLeaderboard from '@/src/components/AdminLeaderboard';
 import ActivityChart from '@/src/components/ActivityChart';
 
-// 👇 1. IMPORT THE NEW COMPONENT
+// New Feature Components
 import AdminRequests from '@/src/components/AdminRequests';
+import UserTable from '@/src/components/UserTable';
+import GlobalAnnouncement from '@/src/components/GlobalAnnouncement';
+import AuditModal from '@/src/components/AuditModal';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
@@ -28,6 +32,9 @@ export default function AdminDashboardPage() {
   const [leaderboardData, setLeaderboardData] = useState(null);
   const [peakData, setPeakData] = useState([]); 
   
+  // Modal State for Auditing
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +48,26 @@ export default function AdminDashboardPage() {
     }
     return headers;
   };
+const handleFinancialReset = async () => {
+  const token = localStorage.getItem('token');
+  
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/system/reset-finances`, {
+    method: 'POST',
+    headers: { 
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
 
+  if (res.ok) {
+    // Refresh the dashboard data so the cards show 0 immediately
+    fetchData(); 
+  } else {
+    const errorData = await res.json();
+    console.error("Reset failed:", errorData);
+    throw new Error("Reset failed");
+  }
+};
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) router.push('/login');
@@ -133,37 +159,58 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 font-sans text-slate-900">
       <div className="max-w-6xl mx-auto space-y-8">
+        
+        {/* Header & Global Announcement */}
         <AdminHeader loading={loading} onRefresh={fetchData} />
+        <GlobalAnnouncement />
         
         {/* --- PRIORITY 1: FINANCIAL REQUESTS --- */}
         <div className="space-y-8">
             <WithdrawalTable 
-            data={pendingWithdrawals} 
-            onAction={(id: string, action: 'approve' | 'reject') => handleAction('withdrawal', id, action)} 
+              data={pendingWithdrawals} 
+              onAction={(id: string, action: 'approve' | 'reject') => handleAction('withdrawal', id, action)} 
             />
             
             <DepositTable 
-            data={pendingDeposits} 
-            onAction={(id: string, action: 'approve' | 'reject') => handleAction('deposit', id, action)} 
+              data={pendingDeposits} 
+              onAction={(id: string, action: 'approve' | 'reject') => handleAction('deposit', id, action)} 
             />
         </div>
 
-        {/* --- PRIORITY 2: USER REQUESTS (SUPPORT) --- */}
-        {/* 👇 ADDED HERE: Shows user reports immediately after money tables */}
+        {/* --- PRIORITY 2: USER MANAGEMENT --- */}
         <div className="my-8">
-            <AdminRequests />
+            <UserTable />
         </div>
 
-        {/* --- PRIORITY 3: METRICS & HEALTH --- */}
-        <MetricGrid stats={stats} health={health} />
+        {/* --- PRIORITY 3: SUPPORT REQUESTS --- */}
+        <div className="my-8">
+            {/* Note: In AdminRequests, you can add a button to trigger AuditModal by setting selectedMatchId */}
+            <AdminRequests onAuditMatch={(matchId: string) => setSelectedMatchId(matchId)} />
+        </div>
+
+        {/* --- PRIORITY 4: METRICS & HEALTH --- */}
+        <MetricGrid 
+  stats={stats} 
+  health={health} 
+  onReset={handleFinancialReset} // 👈 Add this line to satisfy the requirement
+/>
         
         <ActivityChart data={peakData} />
         
         <SystemHealth health={health} stats={stats} />
 
+        {/* --- PRIORITY 5: LEADERBOARD --- */}
         <div className="mt-8">
             <AdminLeaderboard data={leaderboardData} />
         </div>
+
+        {/* --- MODALS --- */}
+        {selectedMatchId && (
+          <AuditModal 
+            matchId={selectedMatchId} 
+            onClose={() => setSelectedMatchId(null)} 
+          />
+        )}
       </div>
     </div>
   );
