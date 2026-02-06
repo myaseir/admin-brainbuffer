@@ -18,6 +18,9 @@ import UserTable from '@/src/components/UserTable';
 import GlobalAnnouncement from '@/src/components/GlobalAnnouncement';
 import AuditModal from '@/src/components/AuditModal';
 
+// --- 🚀 NEW REFERRAL LEADERBOARD ---
+import ReferralLeaderboard from '@/src/components/ReferralLeaderboard';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 type HeaderType = Record<string, string>;
@@ -48,26 +51,27 @@ export default function AdminDashboardPage() {
     }
     return headers;
   };
-const handleFinancialReset = async () => {
-  const token = localStorage.getItem('token');
-  
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/system/reset-finances`, {
-    method: 'POST',
-    headers: { 
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    }
-  });
 
-  if (res.ok) {
-    // Refresh the dashboard data so the cards show 0 immediately
-    fetchData(); 
-  } else {
-    const errorData = await res.json();
-    console.error("Reset failed:", errorData);
-    throw new Error("Reset failed");
-  }
-};
+  const handleFinancialReset = async () => {
+    const token = localStorage.getItem('token');
+    
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/system/reset-finances`, {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (res.ok) {
+      fetchData(); 
+    } else {
+      const errorData = await res.json();
+      console.error("Reset failed:", errorData);
+      throw new Error("Reset failed");
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) router.push('/login');
@@ -177,29 +181,30 @@ const handleFinancialReset = async () => {
             />
         </div>
 
-        {/* --- PRIORITY 2: USER MANAGEMENT --- */}
-        <div className="my-8">
+        {/* --- PRIORITY 2: USER & REFERRAL MANAGEMENT --- */}
+        <div className="space-y-12 my-8">
             <UserTable />
+            {/* 🎯 Referral Leaderboard placed here to keep User stats together */}
+            <ReferralLeaderboard />
         </div>
 
         {/* --- PRIORITY 3: SUPPORT REQUESTS --- */}
         <div className="my-8">
-            {/* Note: In AdminRequests, you can add a button to trigger AuditModal by setting selectedMatchId */}
             <AdminRequests onAuditMatch={(matchId: string) => setSelectedMatchId(matchId)} />
         </div>
 
         {/* --- PRIORITY 4: METRICS & HEALTH --- */}
         <MetricGrid 
-  stats={stats} 
-  health={health} 
-  onReset={handleFinancialReset} // 👈 Add this line to satisfy the requirement
-/>
+          stats={stats} 
+          health={health} 
+          onReset={handleFinancialReset}
+        />
         
         <ActivityChart data={peakData} />
         
         <SystemHealth health={health} stats={stats} />
 
-        {/* --- PRIORITY 5: LEADERBOARD --- */}
+        {/* --- PRIORITY 5: SKILL LEADERBOARD --- */}
         <div className="mt-8">
             <AdminLeaderboard data={leaderboardData} />
         </div>
