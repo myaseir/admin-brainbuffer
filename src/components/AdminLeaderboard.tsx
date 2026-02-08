@@ -43,7 +43,7 @@ export default function AdminLeaderboard({ data }: { data: LeaderboardData | nul
             <div className="flex items-center justify-end gap-2 text-emerald-600">
                 <Wallet size={20} />
                 <span className="text-2xl font-black">
-                    {data.global_stats.currency} {data.global_stats.total_pool.toLocaleString()}
+                   {data.global_stats?.currency} {data.global_stats?.total_pool?.toLocaleString()}
                 </span>
             </div>
         </div>
@@ -61,7 +61,7 @@ export default function AdminLeaderboard({ data }: { data: LeaderboardData | nul
             </tr>
           </thead>
           <tbody className="text-sm font-bold text-slate-700">
-            {data.top_players.map((player, index) => (
+            {(data?.top_players || []).map((player, index) => (
               <tr key={index} className="group hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
                 <td className="py-4 pl-4">
                     <span className={`
@@ -91,7 +91,7 @@ export default function AdminLeaderboard({ data }: { data: LeaderboardData | nul
               </tr>
             ))}
             
-            {data.top_players.length === 0 && (
+           {data?.top_players?.length === 0 && (
                 <tr>
                     <td colSpan={4} className="py-8 text-center text-slate-400 text-xs uppercase">
                         No players found
