@@ -11,7 +11,7 @@ import DepositTable from '@/src/components/DepositTable';
 import SystemHealth from '@/src/components/SystemHealth';
 import AdminLeaderboard from '@/src/components/AdminLeaderboard';
 import ActivityChart from '@/src/components/ActivityChart';
-
+import MaintenanceControl from '@/src/components/MaintenanceControl';
 // New Feature Components
 import AdminRequests from '@/src/components/AdminRequests';
 import UserTable from '@/src/components/UserTable';
@@ -163,7 +163,12 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 font-sans text-slate-900">
       <div className="max-w-6xl mx-auto space-y-8">
-        
+        {/* Header & Global Announcement */}
+<AdminHeader loading={loading} onRefresh={fetchData} />
+<GlobalAnnouncement />
+<div className="my-4">
+  <MaintenanceControl />
+</div>
         {/* Header & Global Announcement */}
         <AdminHeader loading={loading} onRefresh={fetchData} />
         <GlobalAnnouncement />
