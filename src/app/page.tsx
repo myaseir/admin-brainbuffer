@@ -17,7 +17,7 @@ import AdminRequests from '@/src/components/AdminRequests';
 import UserTable from '@/src/components/UserTable';
 import GlobalAnnouncement from '@/src/components/GlobalAnnouncement';
 import AuditModal from '@/src/components/AuditModal';
-
+import BotToggle from '@/src/components/BotToggle';
 // --- 🚀 NEW REFERRAL LEADERBOARD ---
 import ReferralLeaderboard from '@/src/components/ReferralLeaderboard';
 
@@ -168,6 +168,7 @@ export default function AdminDashboardPage() {
 <GlobalAnnouncement />
 <div className="my-4">
   <MaintenanceControl />
+  <BotToggle />
 </div>
         {/* Header & Global Announcement */}
         <AdminHeader loading={loading} onRefresh={fetchData} />
