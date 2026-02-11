@@ -18,6 +18,7 @@ import UserTable from '@/src/components/UserTable';
 import GlobalAnnouncement from '@/src/components/GlobalAnnouncement';
 import AuditModal from '@/src/components/AuditModal';
 import BotToggle from '@/src/components/BotToggle';
+import ReferralDetails from '@/src/components/ReferralDetails'; // The component we just created
 // --- 🚀 NEW REFERRAL LEADERBOARD ---
 import ReferralLeaderboard from '@/src/components/ReferralLeaderboard';
 
@@ -40,7 +41,8 @@ export default function AdminDashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+// Add this near your other useState hooks
+const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name: string} | null>(null);
   const getAuthHeaders = (): HeaderType => {
     const headers: HeaderType = { 
       "Content-Type": "application/json" 
@@ -170,8 +172,7 @@ export default function AdminDashboardPage() {
   <MaintenanceControl />
   <BotToggle />
 </div>
-        {/* Header & Global Announcement */}
-        <AdminHeader loading={loading} onRefresh={fetchData} />
+       
         <GlobalAnnouncement />
         
         {/* --- PRIORITY 1: FINANCIAL REQUESTS --- */}
@@ -189,10 +190,21 @@ export default function AdminDashboardPage() {
 
         {/* --- PRIORITY 2: USER & REFERRAL MANAGEMENT --- */}
         <div className="space-y-12 my-8">
-            <UserTable />
-            {/* 🎯 Referral Leaderboard placed here to keep User stats together */}
-            <ReferralLeaderboard />
-        </div>
+    <UserTable />
+    
+    {/* 🎯 Referral Management Toggle */}
+    {viewingReferralsFor ? (
+        <ReferralDetails 
+            referrerId={viewingReferralsFor.id} 
+            referrerName={viewingReferralsFor.name}
+            onBack={() => setViewingReferralsFor(null)} 
+        />
+    ) : (
+       <ReferralLeaderboard 
+    onViewDetails={(id: string, name: string) => setViewingReferralsFor({ id, name })} 
+/>
+    )}
+</div>
 
         {/* --- PRIORITY 3: SUPPORT REQUESTS --- */}
         <div className="my-8">
