@@ -173,7 +173,7 @@ const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name
   <BotToggle />
 </div>
        
-        <GlobalAnnouncement />
+        
         
         {/* --- PRIORITY 1: FINANCIAL REQUESTS --- */}
         <div className="space-y-8">
