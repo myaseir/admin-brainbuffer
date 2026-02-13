@@ -18,7 +18,9 @@ import UserTable from '@/src/components/UserTable';
 import GlobalAnnouncement from '@/src/components/GlobalAnnouncement';
 import AuditModal from '@/src/components/AuditModal';
 import BotToggle from '@/src/components/BotToggle';
-import ReferralDetails from '@/src/components/ReferralDetails'; // The component we just created
+import ReferralDetails from '@/src/components/ReferralDetails'; 
+// Near your other component imports
+import OnlineUsersTable from '@/src/components/OnlineUsersTable';
 // --- 🚀 NEW REFERRAL LEADERBOARD ---
 import ReferralLeaderboard from '@/src/components/ReferralLeaderboard';
 
@@ -217,6 +219,7 @@ const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name
           health={health} 
           onReset={handleFinancialReset}
         />
+        <OnlineUsersTable />
         
         <ActivityChart data={peakData} />
         
