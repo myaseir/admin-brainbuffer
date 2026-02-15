@@ -22,9 +22,20 @@ import ReferralDetails from '@/src/components/ReferralDetails';
 import OnlineUsersTable from '@/src/components/OnlineUsersTable';
 import ReferralLeaderboard from '@/src/components/ReferralLeaderboard';
 
+// 🚀 NEW COMPONENT
+import ActiveMatchesTable from '@/src/components/ActiveMatchesTable';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 type HeaderType = Record<string, string>;
+
+// Match Interface for Type Safety
+interface Match {
+  id: string;
+  p1_name: string;
+  p2_name: string;
+  stake: number;
+}
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -36,17 +47,16 @@ export default function AdminDashboardPage() {
   const [leaderboardData, setLeaderboardData] = useState(null);
   const [peakData, setPeakData] = useState([]); 
   
-  // Modal State for Auditing
-  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  // 🚀 NEW STATE FOR LIVE MATCHES
+  const [activeMatches, setActiveMatches] = useState<Match[]>([]);
 
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name: string} | null>(null);
 
   const getAuthHeaders = (): HeaderType => {
-    const headers: HeaderType = { 
-      "Content-Type": "application/json" 
-    };
+    const headers: HeaderType = { "Content-Type": "application/json" };
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -58,19 +68,9 @@ export default function AdminDashboardPage() {
     const token = localStorage.getItem('token');
     const res = await fetch(`${API_BASE}/api/admin/system/reset-finances`, {
       method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
     });
-
-    if (res.ok) {
-      fetchData(); 
-    } else {
-      const errorData = await res.json();
-      console.error("Reset failed:", errorData);
-      throw new Error("Reset failed");
-    }
+    if (res.ok) fetchData();
   };
 
   useEffect(() => {
@@ -86,13 +86,14 @@ export default function AdminDashboardPage() {
       const headers = getAuthHeaders();
       
       // Promise.all ensures all data refreshes simultaneously
-      const [revRes, healthRes, depRes, withRes, leadRes, peakRes] = await Promise.all([
+      const [revRes, healthRes, depRes, withRes, leadRes, peakRes, matchRes] = await Promise.all([
         fetch(`${API_BASE}/api/admin/revenue/today`, { headers }),
         fetch(`${API_BASE}/api/admin/health`, { headers }),
         fetch(`${API_BASE}/api/admin/deposits/pending`, { headers }),
         fetch(`${API_BASE}/api/admin/withdrawals/pending`, { headers }),
         fetch(`${API_BASE}/api/leaderboard/stats`, { headers }),
-        fetch(`${API_BASE}/api/admin/stats/peak-times`, { headers }) 
+        fetch(`${API_BASE}/api/admin/stats/peak-times`, { headers }),
+        fetch(`${API_BASE}/api/admin/active-matches/details`, { headers }) // 🚀 Fetching match details
       ]);
 
       if (revRes.status === 401 || revRes.status === 403) {
@@ -106,15 +107,14 @@ export default function AdminDashboardPage() {
       const revData = await revRes.json();
       setStats(revData.metrics);
       setHealth(await healthRes.json());
-      
-      const depData = await depRes.json();
-      setPendingDeposits(depData.pending_deposits || []);
-
-      const withData = await withRes.json();
-      setPendingWithdrawals(withData.pending_withdrawals || []);
-      
+      setPendingDeposits((await depRes.json()).pending_deposits || []);
+      setPendingWithdrawals((await withRes.json()).pending_withdrawals || []);
       setLeaderboardData(await leadRes.json());
       setPeakData(await peakRes.json() || []);
+      
+      // 🚀 Populate Live Matches
+      const matchData = await matchRes.json();
+      setActiveMatches(matchData.active_matches || []);
       
     } catch (err: any) {
       const message = err?.message || "An unknown error occurred";
@@ -132,17 +132,11 @@ export default function AdminDashboardPage() {
         : `${API_BASE}/api/admin/withdraw/${id}/${action}`;
 
       const res = await fetch(url, { method: 'POST', headers: headers });
-
       if (res.ok) {
         alert(`${endpoint} ${action} successful!`);
         fetchData(); 
-      } else {
-        const errData = await res.json();
-        alert(`Action failed: ${errData.detail || "Unknown error"}`);
       }
-    } catch (err) { 
-      alert("Connection Error"); 
-    }
+    } catch (err) { alert("Connection Error"); }
   };
 
   useEffect(() => { 
@@ -150,16 +144,6 @@ export default function AdminDashboardPage() {
         fetchData(); 
     }
   }, []);
-
-  if (error) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="text-center space-y-4">
-        <ShieldCheck size={48} className="mx-auto text-red-500" />
-        <h1 className="text-xl font-black text-slate-800 uppercase">{error}</h1>
-        <button onClick={fetchData} className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold">Retry</button>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-6 font-sans text-slate-900">
@@ -179,7 +163,6 @@ export default function AdminDashboardPage() {
               data={pendingWithdrawals} 
               onAction={(id: string, action: 'approve' | 'reject') => handleAction('withdrawal', id, action)} 
             />
-            
             <DepositTable 
               data={pendingDeposits} 
               onAction={(id: string, action: 'approve' | 'reject') => handleAction('deposit', id, action)} 
@@ -189,7 +172,6 @@ export default function AdminDashboardPage() {
         {/* --- USER & REFERRAL MANAGEMENT --- */}
         <div className="space-y-12 my-8">
           <UserTable />
-          
           {viewingReferralsFor ? (
               <ReferralDetails 
                   referrerId={viewingReferralsFor.id} 
@@ -208,19 +190,21 @@ export default function AdminDashboardPage() {
             <AdminRequests onAuditMatch={(matchId: string) => setSelectedMatchId(matchId)} />
         </div>
 
+        {/* --- LIVE MONITORING SECTION --- */}
+       
+
         {/* --- METRICS & HEALTH --- */}
-        {/* 🚀 Updated MetricGrid with onRefresh prop */}
         <MetricGrid 
           stats={stats} 
           health={health} 
           onReset={handleFinancialReset}
           onRefresh={fetchData} 
         />
-        
-        <OnlineUsersTable />
-        
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <OnlineUsersTable />
+            
+        </div>
         <ActivityChart data={peakData} />
-        
         <SystemHealth health={health} stats={stats} />
 
         {/* --- LEADERBOARD --- */}
