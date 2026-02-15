@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 
@@ -19,9 +19,7 @@ import GlobalAnnouncement from '@/src/components/GlobalAnnouncement';
 import AuditModal from '@/src/components/AuditModal';
 import BotToggle from '@/src/components/BotToggle';
 import ReferralDetails from '@/src/components/ReferralDetails'; 
-// Near your other component imports
 import OnlineUsersTable from '@/src/components/OnlineUsersTable';
-// --- 🚀 NEW REFERRAL LEADERBOARD ---
 import ReferralLeaderboard from '@/src/components/ReferralLeaderboard';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
@@ -43,8 +41,8 @@ export default function AdminDashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-// Add this near your other useState hooks
-const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name: string} | null>(null);
+  const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name: string} | null>(null);
+
   const getAuthHeaders = (): HeaderType => {
     const headers: HeaderType = { 
       "Content-Type": "application/json" 
@@ -58,8 +56,7 @@ const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name
 
   const handleFinancialReset = async () => {
     const token = localStorage.getItem('token');
-    
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/system/reset-finances`, {
+    const res = await fetch(`${API_BASE}/api/admin/system/reset-finances`, {
       method: 'POST',
       headers: { 
         'Authorization': `Bearer ${token}`,
@@ -79,14 +76,16 @@ const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) router.push('/login');
-  }, []);
+  }, [router]);
 
+  // --- 🔄 THE GLOBAL REFRESH LOGIC ---
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
       const headers = getAuthHeaders();
       
+      // Promise.all ensures all data refreshes simultaneously
       const [revRes, healthRes, depRes, withRes, leadRes, peakRes] = await Promise.all([
         fetch(`${API_BASE}/api/admin/revenue/today`, { headers }),
         fetch(`${API_BASE}/api/admin/health`, { headers }),
@@ -104,7 +103,8 @@ const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name
 
       if (!revRes.ok) throw new Error("Server Error");
 
-      setStats((await revRes.json()).metrics);
+      const revData = await revRes.json();
+      setStats(revData.metrics);
       setHealth(await healthRes.json());
       
       const depData = await depRes.json();
@@ -127,12 +127,9 @@ const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name
   const handleAction = async (endpoint: string, id: string, action: string) => {
     try {
       const headers = getAuthHeaders();
-      let url = "";
-      if (endpoint === 'deposit') {
-         url = `${API_BASE}/api/admin/deposit/${id}/${action}`;
-      } else {
-         url = `${API_BASE}/api/admin/withdraw/${id}/${action}`;
-      }
+      const url = endpoint === 'deposit' 
+        ? `${API_BASE}/api/admin/deposit/${id}/${action}`
+        : `${API_BASE}/api/admin/withdraw/${id}/${action}`;
 
       const res = await fetch(url, { method: 'POST', headers: headers });
 
@@ -168,16 +165,15 @@ const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name
     <div className="min-h-screen bg-[#f8fafc] p-6 font-sans text-slate-900">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header & Global Announcement */}
-<AdminHeader loading={loading} onRefresh={fetchData} />
-<GlobalAnnouncement />
-<div className="my-4">
-  <MaintenanceControl />
-  <BotToggle />
-</div>
-       
+        <AdminHeader loading={loading} onRefresh={fetchData} />
+        <GlobalAnnouncement />
         
+        <div className="my-4 flex gap-4">
+          <MaintenanceControl />
+          <BotToggle />
+        </div>
         
-        {/* --- PRIORITY 1: FINANCIAL REQUESTS --- */}
+        {/* --- FINANCIAL REQUESTS --- */}
         <div className="space-y-8">
             <WithdrawalTable 
               data={pendingWithdrawals} 
@@ -190,42 +186,44 @@ const [viewingReferralsFor, setViewingReferralsFor] = useState<{id: string, name
             />
         </div>
 
-        {/* --- PRIORITY 2: USER & REFERRAL MANAGEMENT --- */}
+        {/* --- USER & REFERRAL MANAGEMENT --- */}
         <div className="space-y-12 my-8">
-    <UserTable />
-    
-    {/* 🎯 Referral Management Toggle */}
-    {viewingReferralsFor ? (
-        <ReferralDetails 
-            referrerId={viewingReferralsFor.id} 
-            referrerName={viewingReferralsFor.name}
-            onBack={() => setViewingReferralsFor(null)} 
-        />
-    ) : (
-       <ReferralLeaderboard 
-    onViewDetails={(id: string, name: string) => setViewingReferralsFor({ id, name })} 
-/>
-    )}
-</div>
+          <UserTable />
+          
+          {viewingReferralsFor ? (
+              <ReferralDetails 
+                  referrerId={viewingReferralsFor.id} 
+                  referrerName={viewingReferralsFor.name}
+                  onBack={() => setViewingReferralsFor(null)} 
+              />
+          ) : (
+              <ReferralLeaderboard 
+                onViewDetails={(id: string, name: string) => setViewingReferralsFor({ id, name })} 
+              />
+          )}
+        </div>
 
-        {/* --- PRIORITY 3: SUPPORT REQUESTS --- */}
+        {/* --- SUPPORT REQUESTS --- */}
         <div className="my-8">
             <AdminRequests onAuditMatch={(matchId: string) => setSelectedMatchId(matchId)} />
         </div>
 
-        {/* --- PRIORITY 4: METRICS & HEALTH --- */}
+        {/* --- METRICS & HEALTH --- */}
+        {/* 🚀 Updated MetricGrid with onRefresh prop */}
         <MetricGrid 
           stats={stats} 
           health={health} 
           onReset={handleFinancialReset}
+          onRefresh={fetchData} 
         />
+        
         <OnlineUsersTable />
         
         <ActivityChart data={peakData} />
         
         <SystemHealth health={health} stats={stats} />
 
-        {/* --- PRIORITY 5: SKILL LEADERBOARD --- */}
+        {/* --- LEADERBOARD --- */}
         <div className="mt-8">
             <AdminLeaderboard data={leaderboardData} />
         </div>

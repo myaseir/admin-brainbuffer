@@ -1,12 +1,6 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { 
-  Users, 
-  RefreshCcw, 
-  Wifi, 
-  WifiOff,
-  MousePointer2 
-} from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Users, RefreshCcw, WifiOff, MousePointer2, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface OnlineUser {
@@ -19,7 +13,7 @@ interface OnlineUser {
 export default function OnlineUsersTable() {
   const [users, setUsers] = useState<OnlineUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false); // Track if we have clicked yet
+  const [hasFetched, setHasFetched] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -27,16 +21,14 @@ export default function OnlineUsersTable() {
     setIsMounted(true);
   }, []);
 
-  const fetchOnlineUsers = async () => {
-    setIsLoading(true);
+  const fetchOnlineUsers = useCallback(async (isAutoRefresh = false) => {
+    if (!isAutoRefresh) setIsLoading(true);
+    
     try {
       const token = localStorage.getItem('token'); 
       const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-      if (!baseUrl) {
-        toast.error("API URL Configuration Missing");
-        return;
-      }
+      if (!baseUrl) return;
 
       const cleanUrl = `${baseUrl.replace(/\/+$/, "")}/api/admin/online-players/list`;
 
@@ -49,30 +41,31 @@ export default function OnlineUsersTable() {
         cache: 'no-store' 
       });
       
+      const data = await res.json();
+      
       if (res.ok) {
-        const data = await res.json();
-        const rawPlayers: OnlineUser[] = data.online_players || [];
+        // Support both {online_players: []} and direct array responses
+        const rawPlayers = data.online_players || (Array.isArray(data) ? data : []);
 
-        // Deduplicate
-        const uniquePlayers = rawPlayers.reduce((acc: OnlineUser[], current) => {
-          const x = acc.find(item => item.user_id === current.user_id);
-          if (!x) return acc.concat([current]);
-          return new Date(current.connected_at) > new Date(x.connected_at) 
-            ? acc.map(item => item.user_id === current.user_id ? current : item)
-            : acc;
-        }, []);
-
-        setUsers(uniquePlayers);
+        setUsers(rawPlayers);
         setLastUpdated(new Date());
         setHasFetched(true);
+      } else {
+        console.error("Server Error:", data.detail || "Unknown error");
       }
     } catch (error: any) {
       console.error("❌ Fetch Error:", error.message);
-      toast.error("Server connection failed");
+      if (!isAutoRefresh) toast.error("Failed to sync player list");
     } finally {
-      setIsLoading(false);
+      if (!isAutoRefresh) setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!hasFetched) return;
+    const interval = setInterval(() => fetchOnlineUsers(true), 30000);
+    return () => clearInterval(interval);
+  }, [hasFetched, fetchOnlineUsers]);
 
   return (
     <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden mb-8">
@@ -85,70 +78,62 @@ export default function OnlineUsersTable() {
             </div>
             <h3 className="text-lg font-black text-slate-800">Lobby Monitor</h3>
           </div>
-          <p className="text-xs text-slate-400 font-medium pl-1">
-            Manual Sync Mode • {hasFetched ? "Click to refresh current sessions" : "Data will load on demand"}
+          <p className="text-xs text-slate-400 font-medium pl-1 flex items-center gap-1">
+            <Clock size={12} />
+            {hasFetched ? `Last updated: ${lastUpdated?.toLocaleTimeString()}` : "Ready to monitor"}
           </p>
         </div>
 
         <button 
-          onClick={fetchOnlineUsers}
+          onClick={() => fetchOnlineUsers(false)}
           disabled={isLoading}
           className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md disabled:opacity-50"
         >
           <RefreshCcw size={16} className={isLoading ? "animate-spin" : ""} />
-          {isLoading ? "Fetching..." : hasFetched ? "Sync Again" : "Check Online Players"}
+          {isLoading ? "Syncing..." : "Refresh List"}
         </button>
       </div>
 
-      {/* TABLE / PLACEHOLDER */}
-      <div className="overflow-x-auto min-h-[300px] flex flex-col">
-        {!hasFetched ? (
-          /* INITIAL STATE: NO PRESSURE ON DB */
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-slate-50/30">
-            <div className="h-16 w-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 border border-slate-100">
-              <MousePointer2 className="text-indigo-400 animate-bounce" size={28} />
-            </div>
-            <h4 className="text-slate-700 font-bold mb-1">System on Standby</h4>
-            <p className="text-xs text-slate-400 max-w-[200px] mx-auto">
-              Click the button above to query the live Redis session state.
-            </p>
+      {/* TABLE */}
+      <div className="overflow-x-auto min-h-[300px]">
+        {!hasFetched && !isLoading ? (
+          <div className="flex flex-col items-center justify-center p-20 text-center">
+             <MousePointer2 className="text-indigo-200 mb-4 animate-bounce" size={40} />
+             <p className="text-slate-400 font-bold">Click Refresh to Load Players</p>
           </div>
         ) : (
           <table className="w-full">
             <thead className="bg-slate-50/50">
-              <tr>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Player Identity</th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Session Start</th>
-                <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+              <tr className="text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <th className="px-6 py-4">Player</th>
+                <th className="px-6 py-4">Email</th>
+                <th className="px-6 py-4">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-400">
-                    <WifiOff size={32} className="mx-auto mb-3 text-slate-200" />
-                    <p className="text-sm font-medium">No players found in lobby</p>
+                  <td colSpan={3} className="px-6 py-20 text-center text-slate-300">
+                    <WifiOff className="mx-auto mb-2 opacity-20" size={40} />
+                    No players currently in lobby
                   </td>
                 </tr>
               ) : (
                 users.map((user) => (
-                  <tr key={`${user.user_id}-${user.connected_at}`} className="hover:bg-slate-50/50 transition-colors group">
+                  <tr key={user.user_id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs uppercase">
-                          {user.username?.charAt(0)}
+                        <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xs">
+                          {user.username?.charAt(0).toUpperCase()}
                         </div>
                         <span className="text-sm font-bold text-slate-700">{user.username}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-mono text-xs text-slate-500">{user.email}</td>
-                    <td className="px-6 py-4 text-xs font-bold text-slate-400" suppressHydrationWarning>
-                      {isMounted && user.connected_at ? new Date(user.connected_at).toLocaleTimeString() : '--:--'}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-600 text-[10px] font-black uppercase border border-green-100">
-                        Active
+                    <td className="px-6 py-4 text-xs text-slate-500 font-mono">{user.email}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 text-green-600 text-[10px] font-black uppercase">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                        Online
                       </span>
                     </td>
                   </tr>
@@ -158,18 +143,6 @@ export default function OnlineUsersTable() {
           </table>
         )}
       </div>
-      
-      {/* FOOTER */}
-      {hasFetched && (
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            Count: {users.length}
-          </span>
-          <span className="text-[10px] font-bold text-slate-300" suppressHydrationWarning>
-            Synced at: {isMounted && lastUpdated ? lastUpdated.toLocaleTimeString() : '--:--'}
-          </span>
-        </div>
-      )}
     </div>
   );
 }

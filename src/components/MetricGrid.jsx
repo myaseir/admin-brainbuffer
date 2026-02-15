@@ -8,16 +8,34 @@ import {
   Wallet, 
   Gamepad2, 
   RotateCcw, 
-  Download 
+  Download,
+  Activity,
+  RefreshCw 
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-export default function MetricGrid({ stats, health, onReset }) {
+// Added onRefresh to the props
+export default function MetricGrid({ stats, health, onReset, onRefresh }) {
   const [isResetting, setIsResetting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   if (!stats || !health) return null;
 
-  // --- 1. DOWNLOAD LOGIC (CSV Generation) ---
+  // --- 1. REFRESH LOGIC ---
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Calling the refresh function passed from page.tsx
+      await onRefresh();
+      toast.success("Real-time metrics updated");
+    } catch (error) {
+      toast.error("Failed to sync live data");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // --- 2. DOWNLOAD LOGIC ---
   const downloadFinancialSummary = () => {
     const timestamp = new Date().toISOString().split('T')[0];
     const csvRows = [
@@ -28,18 +46,17 @@ export default function MetricGrid({ stats, health, onReset }) {
       ["System Liquidity (User Balances)", stats.system_liquidity || 0, "Liability"],
       ["Total Registered Users", health.database?.total_registered || 0, "Community"],
       ["Live Players Online", health.real_time?.total_players_online || 0, "Activity"],
+      ["Active Matches", health.real_time?.active_matches || 0, "Activity"],
       ["Export Date", new Date().toLocaleString(), "Log Data"]
     ];
 
-    // Convert array to CSV string
     const csvContent = csvRows.map(row => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     
-    // Create temporary link and trigger download
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `BrainBuffer_Financial_Summary_${timestamp}.csv`);
+    link.setAttribute("download", `GlaciaLabs_Financial_Audit_${timestamp}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -47,19 +64,19 @@ export default function MetricGrid({ stats, health, onReset }) {
     toast.success("Financial summary exported!");
   };
 
-  // --- 2. RESET LOGIC ---
+  // --- 3. RESET LOGIC ---
   const handleResetClick = async () => {
     const confirm = window.confirm(
-      "CRITICAL: Are you sure you want to reset Inflow, Outflow, and Profit? User accounts and balances will remain, but transactional history will be wiped."
+      "CRITICAL: Reset Inflow, Outflow, and Profit? This will wipe transactional history from the dashboard metrics."
     );
     if (!confirm) return;
 
     setIsResetting(true);
     try {
-      await onReset(); // Triggers the fetch in your parent page.tsx
+      await onReset(); 
       toast.success("Financial metrics reset successfully");
     } catch (error) {
-      toast.error("Reset failed. Check backend connection.");
+      toast.error("Reset failed. Check admin permissions.");
     } finally {
       setIsResetting(false);
     }
@@ -70,14 +87,25 @@ export default function MetricGrid({ stats, health, onReset }) {
       {/* --- TOP BAR: ACTION CONTROLS --- */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 p-5 rounded-[2rem] border border-slate-100 shadow-sm">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">System Lifecycle</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Glacia Labs • Financial Audit</p>
           <p className="text-xs font-bold text-slate-600">
-            Last Finance Audit: <span className="text-emerald-600">{new Date().toLocaleDateString()}</span>
+            Current Status: <span className={health.database?.status === "Online" ? "text-emerald-600" : "text-red-500"}>
+              {health.database?.status || "Checking..."}
+            </span>
           </p>
         </div>
         
         <div className="flex flex-wrap gap-3">
-          {/* Download CSV Button */}
+          {/* NEW REFRESH BUTTON */}
+          <button 
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-50 shadow-sm"
+          >
+            <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+            {isRefreshing ? "Syncing..." : "Sync Live Stats"}
+          </button>
+
           <button 
             onClick={downloadFinancialSummary}
             className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-100"
@@ -86,105 +114,102 @@ export default function MetricGrid({ stats, health, onReset }) {
             Export Summary
           </button>
 
-          {/* Reset Action Button */}
           <button 
             onClick={handleResetClick}
             disabled={isResetting}
             className="flex items-center gap-2 px-5 py-2.5 bg-white border border-red-100 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all active:scale-95 disabled:opacity-50 shadow-sm"
           >
             <RotateCcw size={14} className={isResetting ? "animate-spin" : ""} />
-            {isResetting ? "Wiping Data..." : "Reset Financials"}
+            {isResetting ? "Wiping..." : "Reset Metrics"}
           </button>
         </div>
       </div>
 
       {/* --- METRICS GRID --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* 1. 💰 NET PROFIT */}
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden group">
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group">
           <div className="flex justify-between items-start mb-4">
             <div className="p-3 bg-emerald-50 rounded-2xl group-hover:scale-110 transition-transform">
               <DollarSign className="text-emerald-600" size={24} />
             </div>
-            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">Profit</span>
           </div>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Platform Net</p>
-          <h3 className="text-2xl font-black text-slate-900 mt-1">
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider">Net Profit</p>
+          <h3 className="text-xl font-black text-slate-900 mt-1">
             PKR {stats.net_profit?.toLocaleString() || 0}
           </h3>
-          <p className="text-[9px] text-slate-400 mt-2 italic">Calculated from match commissions</p>
         </div>
 
-        {/* 2. 📉 TOTAL DEPOSITS */}
+        {/* 2. 🏦 SYSTEM LIQUIDITY */}
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group">
           <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-violet-50 rounded-2xl group-hover:scale-110 transition-transform">
-              <ArrowDownRight className="text-violet-600" size={24} />
+            <div className="p-3 bg-blue-50 rounded-2xl group-hover:scale-110 transition-transform">
+              <Wallet className="text-blue-600" size={24} />
             </div>
-            <span className="bg-violet-100 text-violet-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">Inflow</span>
           </div>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Collected</p>
-          <h3 className="text-2xl font-black text-slate-900 mt-1">
-            PKR {stats.gross_collections?.toLocaleString() || 0}
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider">User Holdings</p>
+          <h3 className="text-xl font-black text-slate-900 mt-1">
+            PKR {stats.system_liquidity?.toLocaleString() || 0}
           </h3>
-          <p className="text-[9px] text-slate-400 mt-2 italic">Total since last reset</p>
         </div>
 
-        {/* 3. 📈 TOTAL WITHDRAWALS */}
+        {/* 3. 👥 TOTAL USERS */}
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group">
           <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-orange-50 rounded-2xl group-hover:scale-110 transition-transform">
-              <ArrowUpRight className="text-orange-600" size={24} />
+            <div className="p-3 bg-indigo-50 rounded-2xl group-hover:scale-110 transition-transform">
+              <Users className="text-indigo-600" size={24} />
             </div>
-            <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">Outflow</span>
           </div>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Payouts</p>
-          <h3 className="text-2xl font-black text-slate-900 mt-1">
-            PKR {stats.total_payouts?.toLocaleString() || 0}
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider">Registered</p>
+          <h3 className="text-xl font-black text-slate-900 mt-1">
+            {health.database?.total_registered || 0} Users
           </h3>
-          <p className="text-[9px] text-slate-400 mt-2 italic">Total since last reset</p>
         </div>
 
-        {/* 4. 🏦 SYSTEM LIQUIDITY */}
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-           <div className="flex justify-between items-start mb-4">
-             <div className="p-3 bg-blue-50 rounded-2xl">
-               <Wallet className="text-blue-600" size={24} />
-             </div>
-           </div>
-           <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">User Holdings</p>
-           <h3 className="text-2xl font-black text-slate-900 mt-1">
-             PKR {stats.system_liquidity?.toLocaleString() || 0}
-           </h3>
-        </div>
-
-        {/* 5. 👥 REGISTERED USERS */}
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-           <div className="flex justify-between items-start mb-4">
-             <div className="p-3 bg-indigo-50 rounded-2xl">
-               <Users className="text-indigo-600" size={24} />
-             </div>
-           </div>
-           <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Players</p>
-           <h3 className="text-2xl font-black text-slate-900 mt-1">
-             {health.database?.total_registered || 0} Users
-           </h3>
-        </div>
-
-        {/* 6. 🟢 LIVE ONLINE */}
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 relative">
-          <div className="absolute top-6 right-6 flex h-3 w-3">
+        {/* 4. 🟢 LIVE ONLINE */}
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 relative group">
+          <div className="absolute top-6 right-6 flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
           </div>
-          <div className="p-3 bg-green-50 w-fit rounded-2xl mb-4">
+          <div className="p-3 bg-green-50 w-fit rounded-2xl mb-4 group-hover:scale-110 transition-transform">
             <Gamepad2 className="text-green-600" size={24} />
           </div>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Live Now</p>
-          <h3 className="text-2xl font-black text-slate-900 mt-1">
-            {health.real_time?.total_players_online || 0} Online
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider">Players Online</p>
+          <h3 className="text-xl font-black text-slate-900 mt-1">
+            {health.real_time?.total_players_online || 0} Live
           </h3>
+        </div>
+
+        {/* 5. ⚔️ ACTIVE MATCHES */}
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group lg:col-span-1">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-3 bg-rose-50 rounded-2xl group-hover:scale-110 transition-transform">
+              <Activity className="text-rose-600" size={24} />
+            </div>
+          </div>
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider">Active Matches</p>
+          <h3 className="text-xl font-black text-slate-900 mt-1">
+            {health.real_time?.active_matches || 0} In-Game
+          </h3>
+        </div>
+
+        {/* 6. 📉 INFLOW/OUTFLOW COMPACT */}
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 lg:col-span-3 flex items-center justify-around">
+          <div className="text-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Inflow</p>
+            <p className="text-sm font-black text-violet-600 flex items-center gap-1">
+              <ArrowDownRight size={14} /> PKR {stats.gross_collections?.toLocaleString() || 0}
+            </p>
+          </div>
+          <div className="h-8 w-[1px] bg-slate-100" />
+          <div className="text-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Outflow</p>
+            <p className="text-sm font-black text-orange-600 flex items-center gap-1">
+              <ArrowUpRight size={14} /> PKR {stats.total_payouts?.toLocaleString() || 0}
+            </p>
+          </div>
         </div>
 
       </div>
